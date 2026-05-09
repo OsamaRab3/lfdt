@@ -9,7 +9,7 @@ type: "docs"
 
 # Fablo
 
-![Fablo Logo](/images/logo.svg)
+![Fablo Logo](/images/fablo.png)
 
 Fablo is a simple tool to generate the Hyperledger Fabric network and run it on Docker. It's best for local development, CI processes and experimenting with various network configurations. It supports BFT, RAFT and solo consensus protocols, multiple organizations and channels, network snapshots, chaincode installation and many other features.
 
