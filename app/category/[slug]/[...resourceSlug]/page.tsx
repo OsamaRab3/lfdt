@@ -244,13 +244,13 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
 
                     // Handle standalone YouTube links - auto embed as video
                     // Check if paragraph contains a YouTube link
-                    const youtubeMatch = trimmedParagraph.match(/\[([^\]]+)\]\((https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+))\)/);
+                    const youtubeMatch = trimmedParagraph.match(/\[([^\]]+)\]\((https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)[^)]*)\)/);
                     if (youtubeMatch && !trimmedParagraph.includes('![')) {
                       const [, linkText, fullUrl, videoId] = youtubeMatch;
                       // Extract text before the link
-                      const beforeLink = trimmedParagraph.slice(0, trimmedParagraph.indexOf('[')).trim();
+                      const beforeLink = trimmedParagraph.slice(0, youtubeMatch.index).trim();
                       // Extract text after the link
-                      const afterLink = trimmedParagraph.slice(trimmedParagraph.indexOf(')') + 1).trim();
+                      const afterLink = trimmedParagraph.slice((youtubeMatch.index || 0) + youtubeMatch[0].length).trim();
 
                       return (
                         <div key={index} className="my-6">
