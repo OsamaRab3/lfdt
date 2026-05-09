@@ -11,6 +11,14 @@ interface ResourcePageProps {
   params: Promise<{ slug: string; resourceSlug: string[] }>;
 }
 
+// Helper to append the Next.js basePath to internal URLs
+function withBasePath(path: string): string {
+  if (path.startsWith('/')) {
+    return `${process.env.NEXT_PUBLIC_BASE_PATH || ''}${path}`;
+  }
+  return path;
+}
+
 // Helper to render inline markdown (bold, italic, code, images)
 function renderMarkdownText(text: string): React.ReactNode {
   // Check for inline image syntax: ![alt](src)
@@ -20,7 +28,7 @@ function renderMarkdownText(text: string): React.ReactNode {
     let lastIndex = 0;
     let match;
     imageRegex.lastIndex = 0; // Reset regex
-    
+
     while ((match = imageRegex.exec(text)) !== null) {
       const [fullMatch, alt, src] = match;
       // Add text before image
@@ -29,10 +37,10 @@ function renderMarkdownText(text: string): React.ReactNode {
       }
       // Add image
       parts.push(
-        <img 
-          key={match.index} 
-          src={src} 
-          alt={alt} 
+        <img
+          key={match.index}
+          src={withBasePath(src)}
+          alt={alt}
           className="inline-block max-h-8 w-auto align-text-bottom mx-1"
         />
       );
@@ -44,7 +52,7 @@ function renderMarkdownText(text: string): React.ReactNode {
     }
     return <>{parts}</>;
   }
-  
+
   return renderInlineFormatting(text);
 }
 
@@ -57,7 +65,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
     let lastIndex = 0;
     let match;
     linkRegex.lastIndex = 0;
-    
+
     while ((match = linkRegex.exec(text)) !== null) {
       const [fullMatch, linkText, url] = match;
       // Add text before link (with other formatting)
@@ -68,11 +76,11 @@ function renderInlineFormatting(text: string): React.ReactNode {
       // YouTube embedding is handled at paragraph level
       // Add regular link
       parts.push(
-        <a 
-          key={match.index} 
-          href={url} 
-          target="_blank" 
-          rel="noopener noreferrer"
+        <a
+          key={match.index}
+          href={withBasePath(url)}
+          target={url.startsWith('http') ? "_blank" : undefined}
+          rel={url.startsWith('http') ? "noopener noreferrer" : undefined}
           className="text-primary hover:underline"
         >
           {linkText}
@@ -86,7 +94,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
     }
     return <>{parts}</>;
   }
-  
+
   return renderBasicFormatting(text);
 }
 
@@ -94,7 +102,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
 function renderBasicFormatting(text: string): React.ReactNode {
   // Split by patterns: **bold**, *italic*, `code`
   const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`[^`]+`)/g);
-  
+
   return (
     <>
       {parts.map((part, i) => {
@@ -119,29 +127,29 @@ function renderBasicFormatting(text: string): React.ReactNode {
 export async function generateStaticParams() {
   const categories = getAllCategories();
   const params: { slug: string; resourceSlug: string[] }[] = [];
-  
+
   for (const category of categories) {
     for (const resource of category.resources) {
       // Split slug by "/" for catch-all route
       params.push({ slug: category.slug, resourceSlug: resource.slug.split("/") });
     }
   }
-  
+
   return params;
 }
 
 export default async function ResourcePage({ params }: ResourcePageProps) {
   const { slug, resourceSlug } = await params;
   const category = getCategoryBySlug(slug);
-  
+
   if (!category) {
     notFound();
   }
-  
+
   // Join array segments to form the full resource slug
   const fullResourceSlug = resourceSlug.join("/");
   const resource = getResourceBySlug(slug, fullResourceSlug);
-  
+
   if (!resource) {
     notFound();
   }
@@ -150,7 +158,7 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <CategorySidebar category={category} activeResourceSlug={fullResourceSlug} />
-      
+
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="container mx-auto px-4 py-12 max-w-4xl">
@@ -213,9 +221,9 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
             }
             return (
               <div className="mb-8 p-4 bg-muted rounded-lg">
-                <a 
-                  href={resource.externalLink} 
-                  target="_blank" 
+                <a
+                  href={resource.externalLink}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline flex items-center gap-2"
                 >
@@ -233,7 +241,7 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
                 <div className="text-base leading-relaxed space-y-4">
                   {resource.content.split('\n\n').map((paragraph, index) => {
                     const trimmedParagraph = paragraph.trim();
-                    
+
                     // Handle standalone YouTube links - auto embed as video
                     // Check if paragraph contains a YouTube link
                     const youtubeMatch = trimmedParagraph.match(/\[([^\]]+)\]\((https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]+))\)/);
@@ -243,7 +251,7 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
                       const beforeLink = trimmedParagraph.slice(0, trimmedParagraph.indexOf('[')).trim();
                       // Extract text after the link
                       const afterLink = trimmedParagraph.slice(trimmedParagraph.indexOf(')') + 1).trim();
-                      
+
                       return (
                         <div key={index} className="my-6">
                           {beforeLink && <p className="mb-2">{renderMarkdownText(beforeLink)}</p>}
@@ -252,23 +260,23 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
                         </div>
                       );
                     }
-                    
+
                     // Handle linked images: [![alt](img)](link) - YouTube thumbnails, etc.
                     const linkedImageMatch = trimmedParagraph.match(/^\[!\[(.*?)\]\((.*?)\)\]\((.*?)\)$/);
                     if (linkedImageMatch) {
                       const [, alt, imgSrc, linkUrl] = linkedImageMatch;
-                      
+
                       // Try to extract video ID from link URL
                       let videoId = null;
                       const linkYoutubeMatch = linkUrl.match(/youtube\.com\/watch\?v=([^&]+)/);
                       const imgYoutubeMatch = imgSrc.match(/youtube\.com\/watch\?v=([^&]+)/);
-                      
+
                       if (linkYoutubeMatch) {
                         videoId = linkYoutubeMatch[1];
                       } else if (imgYoutubeMatch) {
                         videoId = imgYoutubeMatch[1];
                       }
-                      
+
                       // If we found a YouTube video ID, embed it
                       if (videoId) {
                         return (
@@ -277,30 +285,30 @@ export default async function ResourcePage({ params }: ResourcePageProps) {
                           </div>
                         );
                       }
-                      
+
                       // Regular linked image
                       return (
                         <div key={index} className="my-6">
-                          <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="block hover:opacity-90 transition-opacity">
-                            <img 
-                              src={imgSrc} 
-                              alt={alt} 
+                          <a href={withBasePath(linkUrl)} target={linkUrl.startsWith('http') ? "_blank" : undefined} rel={linkUrl.startsWith('http') ? "noopener noreferrer" : undefined} className="block hover:opacity-90 transition-opacity">
+                            <img
+                              src={withBasePath(imgSrc)}
+                              alt={alt}
                               className="max-w-full h-auto rounded-lg shadow-lg"
                             />
                           </a>
                         </div>
                       );
                     }
-                    
+
                     // Handle images (standalone line)
                     const imageMatch = trimmedParagraph.match(/^!\[(.*?)\]\((.*?)\)$/);
                     if (imageMatch) {
                       const [, alt, src] = imageMatch;
                       return (
                         <div key={index} className="my-6">
-                          <img 
-                            src={src} 
-                            alt={alt} 
+                          <img
+                            src={withBasePath(src)}
+                            alt={alt}
                             className="max-w-full h-auto rounded-lg"
                           />
                         </div>
